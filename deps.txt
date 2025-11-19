@@ -1,0 +1,52 @@
+Dart SDK 3.9.2
+Flutter SDK 3.35.7
+apnea_app 1.0.0+1
+
+dependencies:
+- cupertino_icons 1.0.8
+- fl_chart 1.1.1 [equatable flutter vector_math]
+- flutter 0.0.0 [characters collection material_color_utilities meta vector_math sky_engine]
+- flutter_bluetooth_classic_serial 1.3.2 [flutter plugin_platform_interface]
+- path 1.9.1
+- permission_handler 10.4.5 [flutter meta permission_handler_android permission_handler_apple permission_handler_windows permission_handler_platform_interface]
+- sqflite 2.4.2 [flutter sqflite_android sqflite_darwin sqflite_platform_interface sqflite_common path]
+
+dev dependencies:
+- flutter_lints 5.0.0 [lints]
+- flutter_test 0.0.0 [flutter test_api matcher path fake_async clock stack_trace vector_math leak_tracker_flutter_testing collection meta stream_channel]
+
+transitive dependencies:
+- async 2.13.0 [collection meta]
+- boolean_selector 2.1.2 [source_span string_scanner]
+- characters 1.4.0
+- clock 1.1.2
+- collection 1.19.1
+- equatable 2.0.7 [collection meta]
+- fake_async 1.3.3 [clock collection]
+- leak_tracker 11.0.2 [clock collection meta path vm_service]
+- leak_tracker_flutter_testing 3.0.10 [flutter leak_tracker leak_tracker_testing matcher meta]
+- leak_tracker_testing 3.0.2 [leak_tracker matcher meta]
+- lints 5.1.1
+- matcher 0.12.17 [async meta stack_trace term_glyph test_api]
+- material_color_utilities 0.11.1 [collection]
+- meta 1.16.0
+- permission_handler_android 10.3.6 [flutter permission_handler_platform_interface]
+- permission_handler_apple 9.1.4 [flutter permission_handler_platform_interface]
+- permission_handler_platform_interface 3.12.0 [flutter meta plugin_platform_interface]
+- permission_handler_windows 0.1.3 [flutter permission_handler_platform_interface]
+- platform 3.1.6
+- plugin_platform_interface 2.1.8 [meta]
+- sky_engine 0.0.0
+- source_span 1.10.1 [collection path term_glyph]
+- sqflite_android 2.4.2+2 [flutter sqflite_common path sqflite_platform_interface]
+- sqflite_common 2.5.6 [synchronized path meta]
+- sqflite_darwin 2.4.2 [flutter sqflite_platform_interface meta sqflite_common path]
+- sqflite_platform_interface 2.4.0 [flutter platform sqflite_common plugin_platform_interface meta]
+- stack_trace 1.12.1 [path]
+- stream_channel 2.1.4 [async]
+- string_scanner 1.4.1 [source_span]
+- synchronized 3.4.0
+- term_glyph 1.2.2
+- test_api 0.7.6 [async boolean_selector collection meta source_span stack_trace stream_channel string_scanner term_glyph]
+- vector_math 2.2.0
+- vm_service 15.0.2
