@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_blue_classic/flutter_blue_classic.dart';
 import '../../models/baby_profile.dart';
+import '../../models/reading.dart';
+import '../../services/hub_service.dart';
+import '../../services/database_service.dart';
 import '../bluetooth/bluetooth_page.dart';
+import '../session_summary/session_summary_page.dart';
+import '../settings/settings_drawer.dart';
 
 class Home extends StatefulWidget {
   final BabyProfile profile;
@@ -13,13 +19,17 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
+  // Services
+  final HubService _hubService = HubService();
+  final DatabaseService _databaseService = DatabaseService.instance;
+
   // Bluetooth connection state
   bool _isConnected = false;
 
   // Vitals data state
   bool _hasData = false;
 
-  // Mock vitals data (will be replaced with real data from ESP32)
+  // Real vitals data from ESP32
   double? _heartRate;
   double? _oxygenSaturation;
   double? _breathingRate;
@@ -29,9 +39,31 @@ class _HomeState extends State<Home> {
   final List<double> _oxygenHistory = [];
   final List<double> _breathingHistory = [];
 
+  // Session tracking
+  DateTime? _sessionStartTime;
+  List<Reading> _sessionReadings = [];
+
+
   @override
   void initState() {
     super.initState();
+
+    // Listen to vital signs data from ESP32
+    _hubService.vitalSignsStream.listen((vitalSigns) {
+      if (mounted) {
+        setState(() {
+          _hasData = true;
+          _heartRate = vitalSigns.heartRate.toDouble();
+          _oxygenSaturation = vitalSigns.spO2.toDouble();
+          _breathingRate = vitalSigns.breathingRate.toDouble();
+
+          // Add to history (keep last 20 readings)
+          _addToHistory(_heartRateHistory, _heartRate!);
+          _addToHistory(_oxygenHistory, _oxygenSaturation!);
+          _addToHistory(_breathingHistory, _breathingRate!);
+        });
+      }
+    });
 
     // For testing UI with mock data, uncomment:
     // _loadMockData();
@@ -39,7 +71,15 @@ class _HomeState extends State<Home> {
 
   @override
   void dispose() {
+    _hubService.dispose();
     super.dispose();
+  }
+
+  void _addToHistory(List<double> history, double value) {
+    history.add(value);
+    if (history.length > 20) {
+      history.removeAt(0);
+    }
   }
 
   Future<void> _disconnectDevice() async {
@@ -67,6 +107,34 @@ class _HomeState extends State<Home> {
 
     if (confirmed != true) return;
 
+    // Stop listening for new data from ESP32
+    _hubService.disconnect();
+
+    // Capture session data before clearing
+    DateTime? sessionEndTime = DateTime.now();
+    
+    // Fetch all readings from this session from database
+    List<Reading> sessionReadings = [];
+    Map<String, double> statistics = {};
+    
+    if (_sessionStartTime != null && widget.profile.id != null) {
+      try {
+        sessionReadings = await _databaseService.getReadingsByDateRange(
+          widget.profile.id!,
+          _sessionStartTime!,
+          sessionEndTime,
+        );
+        
+        statistics = await _databaseService.getSessionStatistics(
+          widget.profile.id!,
+          _sessionStartTime!,
+          sessionEndTime,
+        );
+      } catch (e) {
+        print('Error fetching session data: $e');
+      }
+    }
+
     // Disconnect from device
     setState(() {
       _isConnected = false;
@@ -88,23 +156,50 @@ class _HomeState extends State<Home> {
         SnackBar(
           content: Text('Disconnected from NeoBreath Hub'),
           backgroundColor: Color(0xFF8A8A8A),
-          duration: Duration(seconds: 2),
+          duration: Duration(seconds: 1),
         ),
       );
+
+      // Navigate to session summary if we have data
+      if (sessionReadings.isNotEmpty && mounted) {
+        Future.delayed(Duration(milliseconds: 500), () {
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => SessionSummaryPage(
+                  babyName: widget.profile.firstName,
+                  readings: sessionReadings,
+                  statistics: statistics,
+                ),
+              ),
+            );
+          }
+        });
+      }
     }
   }
 
   // Navigate to Bluetooth page
   Future<void> _openBluetoothPage() async {
-    final result = await Navigator.push<bool>(
+    final result = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(builder: (context) => BluetoothPage()),
     );
 
     // Update connection state based on result
-    if (result == true && mounted) {
+    if (result is BluetoothConnection && mounted) {
+      _hubService.setConnection(result, babyProfileId: widget.profile.id);
       setState(() {
         _isConnected = true;
+        _sessionStartTime = DateTime.now();
+        _sessionReadings = [];
+      });
+    } else if (result == true && mounted) {
+      setState(() {
+        _isConnected = true;
+        _sessionStartTime = DateTime.now();
+        _sessionReadings = [];
       });
     }
   }
@@ -478,18 +573,21 @@ class _HomeState extends State<Home> {
       actions: [
         IconButton(
           onPressed: () {
-            showDialog(
+            showGeneralDialog(
               context: context,
-              builder: (context) => AlertDialog(
-                title: Text('Settings'),
-                content: Text('Settings screen coming soon!'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text('OK'),
-                  ),
-                ],
-              ),
+              barrierDismissible: true,
+              barrierLabel: 'Close settings',
+              barrierColor: Colors.black.withOpacity(0.3),
+              transitionDuration: Duration(milliseconds: 300),
+              pageBuilder: (context, animation, secondaryAnimation) {
+                return SlideTransition(
+                  position: Tween<Offset>(
+                    begin: Offset(-1, 0),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: SettingsDrawer(profile: widget.profile),
+                );
+              },
             );
           },
           icon: Icon(Icons.settings, color: Colors.black87),

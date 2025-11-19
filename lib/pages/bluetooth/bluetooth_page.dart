@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_classic/flutter_blue_classic.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class BluetoothPage extends StatefulWidget {
   const BluetoothPage({super.key});
@@ -25,6 +26,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
   StreamSubscription? _scanningStateSubscription;
   
   BluetoothConnection? _currentConnection;
+  Timer? _refreshTimer;
 
   static const String TARGET_DEVICE_NAME = "NeoBreath Hub";
 
@@ -38,21 +40,35 @@ class _BluetoothPageState extends State<BluetoothPage> {
     BluetoothAdapterState adapterState = _adapterState;
 
     try {
+      // Request Bluetooth permissions first
+      await _requestBluetoothPermissions();
+
       adapterState = await _flutterBlueClassicPlugin.adapterStateNow;
+      if (kDebugMode) print('Bluetooth adapter state: $adapterState');
+      
       _adapterStateSubscription =
           _flutterBlueClassicPlugin.adapterState.listen((current) {
-        if (mounted) setState(() => _adapterState = current);
+        if (kDebugMode) print('Adapter state changed to: $current');
+        if (mounted) {
+          setState(() => _adapterState = current);
+          // Check if Bluetooth is turned off
+          if (current != BluetoothAdapterState.on) {
+            _showBluetoothOffDialog();
+          }
+        }
       });
       _scanSubscription =
           _flutterBlueClassicPlugin.scanResults.listen((device) {
+        if (kDebugMode) print('Device found: ${device.name} (${device.address})');
         if (mounted) setState(() => _scanResults.add(device));
       });
       _scanningStateSubscription =
           _flutterBlueClassicPlugin.isScanning.listen((isScanning) {
+        if (kDebugMode) print('Scanning state: $isScanning');
         if (mounted) setState(() => _isScanning = isScanning);
       });
     } catch (e) {
-      if (kDebugMode) print(e);
+      if (kDebugMode) print('Error in initPlatformState: $e');
     }
 
     if (!mounted) return;
@@ -61,29 +77,124 @@ class _BluetoothPageState extends State<BluetoothPage> {
       _adapterState = adapterState;
     });
 
-    // Auto-start scan on init
+    // Check if Bluetooth is off on init
+    if (adapterState != BluetoothAdapterState.on) {
+      _showBluetoothOffDialog();
+      return;
+    }
+
+    // Auto-start scan on init if Bluetooth is on
     _startScan();
+
+    // Start auto-refresh timer - refresh UI every 10 seconds
+    _refreshTimer = Timer.periodic(Duration(seconds: 10), (_) {
+      if (mounted) {
+        setState(() {
+          if (kDebugMode) print('Auto-refresh: ${_scanResults.length} devices found');
+        });
+      }
+    });
+  }
+
+  Future<void> _requestBluetoothPermissions() async {
+    try {
+      // Request Bluetooth permissions based on platform
+      final status = await Permission.bluetooth.request();
+      if (kDebugMode) print('Bluetooth permission status: $status');
+
+      // Also request location permission for Android (required for BLE scanning)
+      final locationStatus = await Permission.location.request();
+      if (kDebugMode) print('Location permission status: $locationStatus');
+    } catch (e) {
+      if (kDebugMode) print('Error requesting permissions: $e');
+    }
   }
 
   Future<void> _startScan() async {
-    if (_isScanning) return;
+    if (_isScanning) {
+      if (kDebugMode) print('Scan already in progress');
+      return;
+    }
+
+    if (kDebugMode) print('Starting Bluetooth scan...');
 
     setState(() {
       _scanResults.clear();
+      _isScanning = true;
     });
 
     try {
+      // Start discovery scan
       _flutterBlueClassicPlugin.startScan();
+      if (kDebugMode) print('Scan initiated');
+      
+      // Set a timeout for scanning - scan for 10 seconds
+      await Future.delayed(Duration(seconds: 10));
+      
+      if (kDebugMode) print('Scan timeout reached. Found ${_scanResults.length} device(s)');
+
+      // Stop the scan after the timeout
+      if (mounted) {
+        _stopScan();
+      }
     } catch (e) {
       if (kDebugMode) print('Error starting scan: $e');
+      if (mounted) {
+        setState(() => _isScanning = false);
+      }
     }
+  }
+
+  void _showBluetoothOffDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('Bluetooth Off'),
+        content: Text(
+          'Please enable Bluetooth to connect to NeoBreath Hub and monitor your baby.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context, false); // Close Bluetooth page
+            },
+            child: Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              // Turn on Bluetooth
+              _flutterBlueClassicPlugin.turnOn();
+              // Retry after a short delay
+              await Future.delayed(Duration(seconds: 1));
+              if (mounted) {
+                await initPlatformState();
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFFFF6B6B),
+              foregroundColor: Colors.white,
+            ),
+            child: Text('Retry'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _stopScan() {
     try {
       _flutterBlueClassicPlugin.stopScan();
+      if (mounted) {
+        setState(() => _isScanning = false);
+      }
     } catch (e) {
       if (kDebugMode) print('Error stopping scan: $e');
+      if (mounted) {
+        setState(() => _isScanning = false);
+      }
     }
   }
 
@@ -111,8 +222,8 @@ class _BluetoothPageState extends State<BluetoothPage> {
           // Wait a moment to show the success message
           await Future.delayed(Duration(milliseconds: 500));
 
-          // Return true to indicate successful connection
-          if (mounted) Navigator.pop(context, true);
+          // Return the connection object to home page
+          if (mounted) Navigator.pop(context, connection);
         }
       }
     } catch (e) {
@@ -135,6 +246,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
     _adapterStateSubscription?.cancel();
     _scanSubscription?.cancel();
     _scanningStateSubscription?.cancel();
+    _refreshTimer?.cancel();
     _stopScan();
     _currentConnection?.dispose();
     super.dispose();
@@ -289,6 +401,7 @@ class _BluetoothPageState extends State<BluetoothPage> {
         return Card(
           margin: EdgeInsets.only(bottom: 12),
           elevation: 0,
+          color: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
             side: isTargetDevice
