@@ -1,7 +1,6 @@
 import 'package:apnea_app/widgets/labeled_text_field.dart';
 import 'package:apnea_app/services/database_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../models/baby_profile.dart';
 
 class CreateProfile extends StatefulWidget {
@@ -236,7 +235,7 @@ class _CreateProfileState extends State<CreateProfile> {
                         ),
                         SizedBox(height: 5),
                         DropdownButtonFormField<String>(
-                          value: _selectedGender,
+                          initialValue: _selectedGender,
                           onChanged: (String? newValue) {
                             setState(() {
                               _selectedGender = newValue;

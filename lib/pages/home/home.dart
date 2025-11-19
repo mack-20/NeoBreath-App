@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../models/baby_profile.dart';
-import '../../services/bluetooth_service.dart';
 import '../bluetooth/bluetooth_page.dart';
 
 class Home extends StatefulWidget {
@@ -14,16 +13,11 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  final BluetoothService _bluetoothService = BluetoothService();
-
   // Bluetooth connection state
   bool _isConnected = false;
 
   // Vitals data state
   bool _hasData = false;
-
-  // Status message
-  String _statusMessage = '';
 
   // Mock vitals data (will be replaced with real data from ESP32)
   double? _heartRate;
@@ -31,14 +25,13 @@ class _HomeState extends State<Home> {
   double? _breathingRate;
 
   // History data for charts (last 20 readings)
-  List<double> _heartRateHistory = [];
-  List<double> _oxygenHistory = [];
-  List<double> _breathingHistory = [];
+  final List<double> _heartRateHistory = [];
+  final List<double> _oxygenHistory = [];
+  final List<double> _breathingHistory = [];
 
   @override
   void initState() {
     super.initState();
-    _setupBluetoothListeners();
 
     // For testing UI with mock data, uncomment:
     // _loadMockData();
@@ -46,43 +39,7 @@ class _HomeState extends State<Home> {
 
   @override
   void dispose() {
-    _bluetoothService.dispose();
     super.dispose();
-  }
-
-  // Setup listeners for Bluetooth data (for future ESP32 integration)
-  void _setupBluetoothListeners() {
-    _bluetoothService.setupListeners();
-
-    // TODO: When ESP32 sends data, parse it here
-    // Example structure for future implementation:
-    // _bluetoothService.onDataReceived.listen((data) {
-    //   _parseAndUpdateVitals(data);
-    // });
-  }
-
-  // Future method to parse incoming data from ESP32
-  void _parseAndUpdateVitals(dynamic data) {
-    // TODO: Implement data parsing based on ESP32 protocol
-    // Example structure:
-    // setState(() {
-    //   _hasData = true;
-    //   _heartRate = parseHeartRate(data);
-    //   _oxygenSaturation = parseOxygen(data);
-    //   _breathingRate = parseBreathing(data);
-    //
-    //   // Add to history (keep last 20)
-    //   _addToHistory(_heartRateHistory, _heartRate!);
-    //   _addToHistory(_oxygenHistory, _oxygenSaturation!);
-    //   _addToHistory(_breathingHistory, _breathingRate!);
-    // });
-  }
-
-  void _addToHistory(List<double> history, double value) {
-    history.add(value);
-    if (history.length > 20) {
-      history.removeAt(0);
-    }
   }
 
   Future<void> _disconnectDevice() async {
@@ -112,50 +69,28 @@ class _HomeState extends State<Home> {
 
     // Disconnect from device
     setState(() {
-      _statusMessage = 'Disconnecting...';
+      _isConnected = false;
+      _hasData = false;
+
+      // Clear all vitals data
+      _heartRate = null;
+      _oxygenSaturation = null;
+      _breathingRate = null;
+
+      // Clear history
+      _heartRateHistory.clear();
+      _oxygenHistory.clear();
+      _breathingHistory.clear();
     });
 
-    try {
-      final disconnected = await _bluetoothService.disconnect();
-
-      if (disconnected) {
-        setState(() {
-          _isConnected = false;
-          _hasData = false;
-
-          // Clear all vitals data
-          _heartRate = null;
-          _oxygenSaturation = null;
-          _breathingRate = null;
-
-          // Clear history
-          _heartRateHistory.clear();
-          _oxygenHistory.clear();
-          _breathingHistory.clear();
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Disconnected from NeoBreath Hub'),
-              backgroundColor: Color(0xFF8A8A8A),
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      } else {
-        throw Exception('Failed to disconnect');
-      }
-    } catch (e) {
-      print('Disconnect error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error disconnecting: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Disconnected from NeoBreath Hub'),
+          backgroundColor: Color(0xFF8A8A8A),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -167,7 +102,7 @@ class _HomeState extends State<Home> {
     );
 
     // Update connection state based on result
-    if (result == true) {
+    if (result == true && mounted) {
       setState(() {
         _isConnected = true;
       });
