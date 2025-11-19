@@ -48,6 +48,9 @@ class _HomeState extends State<Home> {
   void initState() {
     super.initState();
 
+    // Load previous readings from database when page is created
+    _loadPreviousReadings();
+
     // Listen to vital signs data from ESP32
     _hubService.vitalSignsStream.listen((vitalSigns) {
       if (mounted) {
@@ -79,6 +82,54 @@ class _HomeState extends State<Home> {
     history.add(value);
     if (history.length > 20) {
       history.removeAt(0);
+    }
+  }
+
+  Future<void> _loadPreviousReadings() async {
+    try {
+      print('🔍 Attempting to load previous readings...');
+      print('📌 Profile ID: ${widget.profile.id}');
+      
+      if (widget.profile.id == null) {
+        print('⚠️ Profile ID is null, cannot load readings');
+        return;
+      }
+
+      // Fetch the latest 20 readings from database
+      final readings = await _databaseService.getLatestReadings(
+        widget.profile.id!,
+        20,
+      );
+
+      print('✅ Loaded ${readings.length} previous readings from database');
+
+      if (readings.isNotEmpty && mounted) {
+        setState(() {
+          // Clear current history
+          _heartRateHistory.clear();
+          _oxygenHistory.clear();
+          _breathingHistory.clear();
+
+          // Load previous readings into history
+          for (final reading in readings) {
+            _heartRateHistory.add(reading.heartRate.toDouble());
+            _oxygenHistory.add(reading.spO2.toDouble());
+            _breathingHistory.add(reading.breathingRate.toDouble());
+          }
+
+          // Set hasData to true and set current values to the latest readings
+          _hasData = true;
+          _heartRate = readings.last.heartRate.toDouble();
+          _oxygenSaturation = readings.last.spO2.toDouble();
+          _breathingRate = readings.last.breathingRate.toDouble();
+
+          print('📊 History loaded - HR: $_heartRate, SpO2: $_oxygenSaturation, BR: $_breathingRate');
+        });
+      } else {
+        print('⚠️ No previous readings found for this profile');
+      }
+    } catch (e) {
+      print('❌ Error loading previous readings: $e');
     }
   }
 
@@ -138,17 +189,12 @@ class _HomeState extends State<Home> {
     // Disconnect from device
     setState(() {
       _isConnected = false;
-      _hasData = false;
 
-      // Clear all vitals data
+      // Clear current vitals data but keep history for display
       _heartRate = null;
       _oxygenSaturation = null;
       _breathingRate = null;
-
-      // Clear history
-      _heartRateHistory.clear();
-      _oxygenHistory.clear();
-      _breathingHistory.clear();
+      // Note: Do NOT clear history - it should remain visible on the page
     });
 
     if (mounted) {
@@ -173,7 +219,10 @@ class _HomeState extends State<Home> {
                   statistics: statistics,
                 ),
               ),
-            );
+            ).then((_) {
+              // After summary page is closed, reload the latest readings
+              _loadPreviousReadings();
+            });
           }
         });
       }
@@ -190,12 +239,14 @@ class _HomeState extends State<Home> {
     // Update connection state based on result
     if (result is BluetoothConnection && mounted) {
       _hubService.setConnection(result, babyProfileId: widget.profile.id);
+      await _loadPreviousReadings();
       setState(() {
         _isConnected = true;
         _sessionStartTime = DateTime.now();
         _sessionReadings = [];
       });
     } else if (result == true && mounted) {
+      await _loadPreviousReadings();
       setState(() {
         _isConnected = true;
         _sessionStartTime = DateTime.now();
@@ -582,7 +633,7 @@ class _HomeState extends State<Home> {
               pageBuilder: (context, animation, secondaryAnimation) {
                 return SlideTransition(
                   position: Tween<Offset>(
-                    begin: Offset(-1, 0),
+                    begin: Offset(1, 0),
                     end: Offset.zero,
                   ).animate(animation),
                   child: SettingsDrawer(profile: widget.profile),

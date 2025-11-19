@@ -21,7 +21,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.centerRight,
       child: SizedBox(
         width: MediaQuery.of(context).size.width * 0.9,
         child: Material(
@@ -35,7 +35,7 @@ class _SettingsDrawerState extends State<SettingsDrawer> {
                 decoration: BoxDecoration(
                   color: Color(0xFF1B86ED),
                   borderRadius: BorderRadius.only(
-                    bottomRight: Radius.circular(24),
+                    bottomLeft: Radius.circular(24),
                   ),
                 ),
                 child: Column(

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../services/database_service.dart';
-import '../../widgets/profile_card.dart';
 import '../../models/baby_profile.dart';
 
 class SelectProfile extends StatefulWidget {
@@ -47,22 +46,15 @@ class _SelectProfileState extends State<SelectProfile> {
   }
 
   void _navigateToAddProfile() async {
-    // Navigate to add profile screen
-    final result = await Navigator.pushNamed(context, '/create_profile').then((shouldRefreseh){
-      if(shouldRefreseh == true){
+    await Navigator.pushNamed(context, '/create_profile').then((shouldRefresh){
+      if(shouldRefresh == true){
         _loadProfiles();
       }
     });
-    
-    // Reload profiles if a new profile was added
-    if (result == true) {
-      _loadProfiles();
-    }
   }
 
   void _onProfileTap(BabyProfile profile) {
     Navigator.pushNamed(context, '/home', arguments: profile);
-    
     print('Selected profile: ${profile.fullName}');
   }
 
@@ -76,21 +68,22 @@ class _SelectProfileState extends State<SelectProfile> {
         title: Text(
           'My Babies',
           style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
             color: Colors.black,
           ),
         ),
+        centerTitle: false,
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: Color(0xFF1B86ED)))
           : _profiles.isEmpty
               ? _buildEmptyState()
               : _buildProfileList(),
       floatingActionButton: FloatingActionButton(
         onPressed: _navigateToAddProfile,
-        backgroundColor: Color(0xFFFF6B6B),
-        child: Icon(Icons.add, size: 32, color: Color(0xFFF6F7F8)),
+        backgroundColor: Color(0xFF1B86ED),
+        child: Icon(Icons.add, size: 32, color: Colors.white),
       ),
     );
   }
@@ -102,37 +95,45 @@ class _SelectProfileState extends State<SelectProfile> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.child_care,
-              size: 80,
-              color: Colors.grey[400],
+            Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                color: Color(0xFFE2EDFF),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.child_care,
+                size: 60,
+                color: Color(0xFF1B86ED),
+              ),
             ),
-            SizedBox(height: 24),
+            SizedBox(height: 32),
             Text(
               'No Baby Profiles Yet',
               style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
+                fontSize: 24,
+                fontWeight: FontWeight.w700,
                 color: Colors.black87,
               ),
             ),
             SizedBox(height: 12),
             Text(
-              'Create your first baby profile to start\nmonitoring their health and wellness',
+              'Create your first baby profile to start\nmonitoring their vital signs and wellness',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey[600],
+                color: Color(0xFF8A8A8A),
                 height: 1.5,
               ),
             ),
-            SizedBox(height: 32),
+            SizedBox(height: 40),
             ElevatedButton.icon(
               onPressed: _navigateToAddProfile,
-              icon: Icon(Icons.add),
-              label: Text('Create Profile'),
+              icon: Icon(Icons.add, size: 20),
+              label: Text('Create First Profile'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFFF6B6B),
+                backgroundColor: Color(0xFF1B86ED),
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 textStyle: TextStyle(
@@ -144,14 +145,6 @@ class _SelectProfileState extends State<SelectProfile> {
                 ),
               ),
             ),
-            SizedBox(height: 16),
-            Text(
-              'or tap the + button below',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-            ),
           ],
         ),
       ),
@@ -161,17 +154,208 @@ class _SelectProfileState extends State<SelectProfile> {
   Widget _buildProfileList() {
     return RefreshIndicator(
       onRefresh: _loadProfiles,
+      color: Color(0xFF1B86ED),
       child: ListView.builder(
-        padding: EdgeInsets.all(16),
+        padding: EdgeInsets.fromLTRB(16, 24, 16, 100),
         itemCount: _profiles.length,
         itemBuilder: (context, index) {
           final profile = _profiles[index];
-          return ProfileCard(
-            profile: profile,
-            onTap: () => _onProfileTap(profile),
-          );
+          return _buildEnhancedProfileCard(profile, index);
         },
       ),
     );
+  }
+
+  Widget _buildEnhancedProfileCard(BabyProfile profile, int index) {
+    final colors = [
+      [Color(0xFFFFE5E5), Color(0xFFFF6B6B)],
+      [Color(0xFFE2EDFF), Color(0xFF1B86ED)],
+      [Color(0xFFE8F5E9), Color(0xFF4CAF50)],
+      [Color(0xFFFFF3E0), Color(0xFFFF9800)],
+    ];
+    
+    final colorSet = colors[index % colors.length];
+    final bgColor = colorSet[0];
+    final accentColor = colorSet[1];
+
+    return GestureDetector(
+      onTap: () => _onProfileTap(profile),
+      child: Container(
+        margin: EdgeInsets.only(bottom: 16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 12,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => _onProfileTap(profile),
+            borderRadius: BorderRadius.circular(20),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with avatar and name
+                  Row(
+                    children: [
+                      // Avatar
+                      Container(
+                        width: 70,
+                        height: 70,
+                        decoration: BoxDecoration(
+                          color: bgColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${profile.firstName[0]}${profile.lastName[0]}',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: accentColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Baby ${profile.firstName}',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              profile.lastName,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF8A8A8A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        color: Color(0xFFC0C0C0),
+                        size: 20,
+                      ),
+                    ],
+                  ),
+
+                  SizedBox(height: 16),
+                  Divider(color: Color(0xFFF0F0F0), thickness: 1),
+                  SizedBox(height: 16),
+
+                  // Info grid
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildInfoChip(
+                          icon: Icons.calendar_today,
+                          label: 'Age',
+                          value: profile.gestationalAge != null 
+                              ? '${profile.gestationalAge}w'
+                              : '--',
+                          color: accentColor,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildInfoChip(
+                          icon: Icons.scale,
+                          label: 'Weight',
+                          value: profile.weight != null 
+                              ? '${profile.weight}kg'
+                              : '--',
+                          color: accentColor,
+                        ),
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: _buildInfoChip(
+                          icon: Icons.wc,
+                          label: 'Gender',
+                          value: _formatGender(profile.gender),
+                          color: accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Color(0xFFF6F7F8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2), width: 1),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 18, color: color),
+          SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF8A8A8A),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatGender(String? gender) {
+    if (gender == null) return '--';
+    switch (gender.toLowerCase()) {
+      case 'male':
+        return '👦';
+      case 'female':
+        return '👧';
+      case 'other':
+        return '👶';
+      default:
+        return '--';
+    }
   }
 }
